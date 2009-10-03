@@ -1,12 +1,12 @@
-#ifndef Tokyo_BASE_H
-#define Tokyo_BASE_H 1
+#ifndef TOKYO_BASE_H
+#define TOKYO_BASE_H 1
 
 #include "base-test.hh"
 
-#include <tcutil.h>
-#include <tchdb.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <tcutil.h>
+#include <tchdb.h>
 #define ERRSTR_SIZE 64
 
 namespace kvtest {
@@ -67,4 +67,4 @@ namespace kvtest {
 
 }
 
-#endif /* Tokyo_BASE_H */
+#endif /* TOKYO_BASE_H */

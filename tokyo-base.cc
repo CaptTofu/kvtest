@@ -25,11 +25,11 @@ void TokyoStore::reset() {
 void TokyoStore::set(std::string &key, std::string &val,
                    Callback<bool> &cb) {
   bool rv = true;
-  int ecode;
+  //int ecode;
 
   if (!tchdbput2(hdb, key.c_str(), val.c_str())) {
-    ecode = tchdbecode(hdb)
     /*
+      ecode = tchdbecode(hdb);
       char errmsg[ERRSTR_SIZE];
       ssprintf(errmsg, ERRSTR_SIZE, "put error: %s\n", tchdberrmsg(ecode));
     */
@@ -40,7 +40,7 @@ void TokyoStore::set(std::string &key, std::string &val,
 }
 
 void TokyoStore::get(std::string &key, Callback<GetValue> &cb) {
-  int ecode;
+  //int ecode;
   char *value;
 
   /* retrieve data */
@@ -75,7 +75,7 @@ void TokyoStore::del(std::string &key, Callback<bool> &cb) {
 
 void TokyoStore::open() {
     int ecode;
-    int flags = HDBOWRITER | HDBOCREATE;
+    int flags = HDBOWRITER | HDBOCREAT;
 
     if (!hdb) {
         hdb = tchdbnew();
@@ -85,7 +85,7 @@ void TokyoStore::open() {
 
 
         /* open the database */
-        if (!tchdbopen(hdb, "casket.tch", flags)) {
+        if (!tchdbopen(hdb, path, flags)) {
           char msg[ERRSTR_SIZE];
           ecode = tchdbecode(hdb);
           snprintf(msg, ERRSTR_SIZE, "open tchdb error: %s\n", tchdberrmsg(ecode));
@@ -95,7 +95,7 @@ void TokyoStore::open() {
 }
 
 void TokyoStore::close() {
-  int ecode;
+  //int ecode;
   if (!tchdbclose(hdb)){
     /*
     char errmsg[ERRSTR_SIZE];
@@ -103,7 +103,9 @@ void TokyoStore::close() {
     snprintf(errmsg, ERRSTR_SIZE, "close error: %s\n", tchdberrmsg(ecode));
     */
   }
+  //tchdbdel(hdb);
 }
+/* should there be a destroy? */
 void TokyoStore::~TokyoStore() {
   tchdbdel(hdb);
 }
