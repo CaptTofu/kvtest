@@ -103,10 +103,6 @@ void TokyoStore::close() {
     snprintf(errmsg, ERRSTR_SIZE, "close error: %s\n", tchdberrmsg(ecode));
     */
   }
-  //tchdbdel(hdb);
-}
-/* should there be a destroy? */
-void TokyoStore::~TokyoStore() {
   tchdbdel(hdb);
 }
 
