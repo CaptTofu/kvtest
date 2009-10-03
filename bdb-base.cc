@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <iostream>
 
 #include "base-test.hh"
@@ -12,6 +13,7 @@ using namespace kvtest;
 BDBStore::BDBStore(const char *p, bool should_autocommit) {
     path = p;
     autocommit = should_autocommit;
+    db = NULL;
     open();
 }
 
@@ -46,7 +48,6 @@ void BDBStore::set(std::string &key, std::string &val,
 
 void BDBStore::get(std::string &key, Callback<GetValue> &cb) {
     DBT bdbkey, bdbdata;
-    char charval[8192];
 
     /* Zero out the DBTs before using them. */
     memset(&bdbkey, 0, sizeof(DBT));

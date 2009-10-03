@@ -1,15 +1,17 @@
-CFLAGS=-g
+CFLAGS=-Wall -Wextra -ansi -pendantic -Wno-unused-parameter -Werror -g
 LDFLAGS=-g
 
 COMMON=base-test.hh locks.hh callbacks.hh suite.hh tests.hh
 OBJS=tests.o suite.o
-PROG_OBJS=example-test.o sqlite3-test.o sqlite3-async-test.o bdb-test.o
+PROG_OBJS=example-test.o sqlite3-test.o sqlite3-async-test.o \
+	bdb-test.o bdb-async-test.o
 SQLITE_OBJS=sqlite-base.o
 SQLITE_COMMON=sqlite-base.hh
 
 BDB_VER=4.8
-BDB_CFLAGS=-I/usr/local/BerkeleyDB.$(BDB_VER)/include
-BDB_LDFLAGS=-L/usr/local/BerkeleyDB.$(BDB_VER)/lib -ldb-$(BDB_VER)
+BDB_PATH=/usr/local/BerkeleyDB.$(BDB_VER)
+BDB_CFLAGS=-I$(BDB_PATH)/include
+BDB_LDFLAGS=-L$(BDB_PATH)/lib -ldb
 BDB_OBJS=bdb-base.o
 BDB_COMMON=bdb-base.hh
 
@@ -37,7 +39,7 @@ bdb-async-test: bdb-async-test.o $(BDB_OBJS) $(OBJS) $(COMMON)
 	$(CXX) -o $@ bdb-async-test.o $(BDB_OBJS) $(OBJS) $(LDFLAGS) $(BDB_LDFLAGS)
 
 clean:
-	-rm $(ALL_OBJS) $(ALL_PROGS) $(BDB_PROGS) $(BDB_OBJS)
+	-rm $(ALL_OBJS) $(ALL_PROGS) $(BDB_PROGS)
 
 .cc.o: $< $(COMMON)
 	$(CXX) $(CFLAGS) -c -o $@ $<

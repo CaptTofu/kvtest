@@ -1,6 +1,7 @@
 #ifndef ASYNC_HH
 #define ASYNC_HH 1
 
+#include <stdlib.h>
 #include <queue>
 
 #define MAX_DRAIN 25000
@@ -20,6 +21,16 @@ namespace kvtest {
             throw std::runtime_error("not implemented");
         }
 
+    };
+
+    /**
+     * Operation sent to an async queue to tell it to shut down.
+     */
+    class AsyncShutdownOperation : public AsyncOperation {
+    public:
+        bool execute(KVStore *tut) {
+            throw this;
+        }
     };
 
     /**
@@ -232,35 +243,49 @@ namespace kvtest {
         AsyncExecutor(KVStore *d, AsyncQueue *q) {
             tut     = d;
             iq      = q;
-            running = true;
         }
 
         /**
          * Run forever.
          */
         void run() {
-            while(running) {
-                std::queue<AsyncOperation*> ops;
-                iq->drainTo(ops);
-                tut->begin();
-                int count = 0;
+            try {
+                while(true) {
+                    std::queue<AsyncOperation*> ops;
+                    iq->drainTo(ops);
+                    tut->begin();
+                    int count = 0;
 
-                while(!ops.empty()) {
-                    AsyncOperation *op = ops.front();
-                    ops.pop();
+                    while(!ops.empty()) {
+                        AsyncOperation *op = ops.front();
+                        ops.pop();
 
-                    op->execute(tut);
-                    count++;
+                        op->execute(tut);
+                        count++;
+                        delete op;
+                    }
+
+                    tut->commit();
                 }
-
-                tut->commit();
+            } catch(AsyncShutdownOperation *op) {
+                std::cerr << "Shutting down..." << std::endl;
+            } catch(std::runtime_error &e) {
+                std::cerr << "Exception in executor loop: "
+                          << e.what() << std::endl;
+                abort();
             }
         }
 
+        /**
+         * Shut down this thread.
+         */
+        void stop() {
+            iq->addOperation(new AsyncShutdownOperation());
+        }
+
     private:
-        bool            running;
-        KVStore *tut;
-        AsyncQueue     *iq;
+        KVStore       *tut;
+        AsyncQueue    *iq;
     };
 
     static void* launch_executor_thread(void* arg) {
@@ -270,6 +295,7 @@ namespace kvtest {
         } catch(...) {
             std::cerr << "Caught a fatal exception in the thread" << std::endl;
         }
+        return NULL;
     }
 
     /**
@@ -296,8 +322,10 @@ namespace kvtest {
          * Clean up.
          */
         ~QueuedKVStore() {
-            delete iq;
+            executor->stop();
+            pthread_join(thread, NULL);
             delete executor;
+            delete iq;
         }
 
         /**

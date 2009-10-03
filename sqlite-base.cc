@@ -59,16 +59,17 @@ namespace kvtest {
         }
     }
 
-    Sqlite3::Sqlite3(const char *fn) {
+    BaseSqlite3::BaseSqlite3(const char *fn) {
         filename = fn;
+        db = NULL;
         open();
     }
 
-    Sqlite3::~Sqlite3() {
+    BaseSqlite3::~BaseSqlite3() {
         close();
     }
 
-    void Sqlite3::open() {
+    void BaseSqlite3::open() {
         if(!db) {
             if(sqlite3_open(filename, &db) !=  SQLITE_OK) {
                 throw std::runtime_error("Error initializing sqlite3");
@@ -76,68 +77,101 @@ namespace kvtest {
 
             intransaction = false;
             initTables();
-
-            ins_stmt = new PreparedStatement(db, "insert into kv(k,v) values(?, ?)");
-            sel_stmt = new PreparedStatement(db, "select v from kv where k = ?");
-            del_stmt = new PreparedStatement(db, "delete from kv where k = ?");
+            initStatements();
         }
     }
 
-    void Sqlite3::close() {
+    void BaseSqlite3::close() {
         if(db) {
             intransaction = false;
-            delete ins_stmt;
-            delete sel_stmt;
-            delete del_stmt;
-            ins_stmt = sel_stmt = del_stmt = NULL;
+            destroyStatements();
             sqlite3_close(db);
             db = NULL;
         }
     }
 
-    void Sqlite3::initTables() {
-        execute("create table if not exists kv"
-                " (k varchar(250) primary key on conflict replace,"
-                "  v text)");
+    void BaseSqlite3::reset() {
+        if(db) {
+            rollback();
+            close();
+            open();
+            destroyTables();
+            initTables();
+            execute("vacuum");
+        }
     }
 
-    void Sqlite3::destroyTables() {
-        execute("drop table if exists kv");
-    }
-
-    void Sqlite3::reset() {
-        rollback();
-        close();
-        open();
-        destroyTables();
-        initTables();
-        execute("vacuum");
-    }
-
-    void Sqlite3::begin() {
+    void BaseSqlite3::begin() {
         if(!intransaction) {
             execute("begin");
             intransaction = true;
         }
     }
 
-    void Sqlite3::commit() {
+    void BaseSqlite3::commit() {
         if(intransaction) {
             intransaction = false;
             execute("commit");
         }
     }
 
-    void Sqlite3::rollback() {
+    void BaseSqlite3::rollback() {
         if(intransaction) {
             intransaction = false;
             execute("rollback");
         }
     }
 
-    void Sqlite3::execute(const char *query) {
+    void BaseSqlite3::execute(const char *query) {
         PreparedStatement st(db, query);
         st.execute();
+    }
+
+
+    // Sqlite3 naive class.
+
+
+    void Sqlite3::initStatements() {
+        ins_stmt = new PreparedStatement(db, "insert into kv(k,v) values(?, ?)");
+        sel_stmt = new PreparedStatement(db, "select v from kv where k = ?");
+        del_stmt = new PreparedStatement(db, "delete from kv where k = ?");
+    }
+
+    void Sqlite3::destroyStatements() {
+        delete ins_stmt;
+        delete sel_stmt;
+        delete del_stmt;
+        ins_stmt = sel_stmt = del_stmt = NULL;
+    }
+
+    void Sqlite3::initTables() {
+        execute("create table if not exists kv"
+                " (k varchar(250) primary key on conflict replace,"
+                "  v text)");
+        if(auditable) {
+            execute("create table if not exists history ("
+                    " id integer primary key autoincrement,"
+                    " op char(1) not null,"
+                    " key varchar(250) not null,"
+                    " value text null)");
+            execute("create trigger if not exists on_audit_insert"
+                    " before insert on kv for each row begin"
+                    "  insert into history (op,key,value)"
+                    "         values ('s', new.k, new.v);"
+                    " end");
+            execute("create trigger if not exists on_audit_delete"
+                    " before delete on kv for each row begin"
+                    "  insert into history (op,key)"
+                    "         values ('d', old.k);"
+                    " end");
+        }
+    }
+
+    void Sqlite3::destroyTables() {
+        execute("drop table if exists kv");
+        execute("drop table if exists history");
+        execute("drop trigger if exists on_audit_insert");
+        execute("drop trigger if exists on_audit_delete");
     }
 
     void Sqlite3::set(std::string &key, std::string &val,
